@@ -3,9 +3,9 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     api = hass.data[DOMAIN][config_entry.entry_id]
-    async_add_entities([TouchPanelStatusSensor(api)])
+    async_add_entities([WhitelionTouchStatusSensor(api)])
 
-class TouchPanelStatusSensor(SensorEntity):
+class WhitelionTouchStatusSensor(SensorEntity):
     def __init__(self, api):
         self.api = api
         self._status = None
