@@ -3,10 +3,9 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     api = hass.data[DOMAIN][config_entry.entry_id]
-    switches = [TouchPanelSwitch(api, i) for i in range(1, 6)]  # Example: 5 switches
-    async_add_entities(switches)
+    async_add_entities([WhitelionTouchSwitch(api, i) for i in range(1, 6)])
 
-class TouchPanelSwitch(SwitchEntity):
+class WhitelionTouchSwitch(SwitchEntity):
     def __init__(self, api, switch_id):
         self.api = api
         self.switch_id = switch_id
@@ -14,7 +13,7 @@ class TouchPanelSwitch(SwitchEntity):
 
     @property
     def name(self):
-        return f"Touch Panel Switch {self.switch_id}"
+        return f"Switch {self.switch_id}"
 
     @property
     def is_on(self):
