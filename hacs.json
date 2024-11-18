@@ -1,0 +1,9 @@
+{
+  "name": "JR Touch Panel",
+  "content_in_root": false,
+  "domains": [
+    "jr_panel"
+  ],
+  "homeassistant": "2023.0.0",
+  "render_readme": true
+}
