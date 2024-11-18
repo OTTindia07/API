@@ -1,0 +1,9 @@
+{
+  "domain": "whitelion_touch",
+  "name": "Whitelion Touch Switch",
+  "version": "1.0",
+  "documentation": "https://example.com/documentation",
+  "dependencies": [],
+  "requirements": ["requests"],
+  "codeowners": ["@yourgithubusername"]
+}
