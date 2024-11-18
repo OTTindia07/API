@@ -1,0 +1,24 @@
+{
+  "title": "Whitelion Touch Switch",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Setup Whitelion Touch Switch",
+        "description": "Enter the information to connect to your Whitelion Touch Switch.",
+        "data": {
+          "host": "Host Address",
+          "device_id": "Device ID",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the device. Please check your details.",
+      "unknown": "An unknown error occurred."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  }
+}
