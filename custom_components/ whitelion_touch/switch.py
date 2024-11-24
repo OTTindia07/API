@@ -1,24 +1,21 @@
+"""Switch platform for Whitelion Touch."""
+
 from homeassistant.components.switch import SwitchEntity
 from .const import DOMAIN
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up Whitelion switches dynamically from a config entry."""
+    """Set up Whitelion switches dynamically."""
     ip_address = entry.data["ip_address"]
     device_id = entry.data["device_id"]
     model = entry.data["model"]
 
-    # Parse the model to determine the number of switches
-    try:
-        num_switches = int(model[0]) + 1  # "6M" means 7 switches
-    except ValueError:
-        num_switches = 1  # Default to 1 switch if the model isn't formatted as expected
+    # Parse number of switches from the model (e.g., "3M" = 3 switches)
+    num_switches = int(model[0]) if model[0].isdigit() else 1
 
-    # Create switch entities dynamically
     switches = [
         WhitelionSwitch(ip_address, device_id, switch_id)
         for switch_id in range(1, num_switches + 1)
     ]
-
     async_add_entities(switches, update_before_add=True)
 
 class WhitelionSwitch(SwitchEntity):
@@ -31,43 +28,37 @@ class WhitelionSwitch(SwitchEntity):
         self._is_on = False
 
     @property
-    def unique_id(self):
-        """Return a unique ID for the switch."""
-        return f"{self._device_id}_switch_{self._switch_id}"
-
-    @property
     def name(self):
-        """Return the name of the switch."""
-        return f"Switch {self._switch_id}"
+        return f"Whitelion Switch {self._switch_id}"
 
     @property
     def is_on(self):
-        """Return the state of the switch."""
         return self._is_on
 
     async def async_turn_on(self, **kwargs):
-        """Turn the switch on."""
-        await self._send_command(f"01XX{self._switch_id}1")
+        """Turn on the switch."""
+        await self._send_command("1")
         self._is_on = True
-        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        """Turn the switch off."""
-        await self._send_command(f"01XX{self._switch_id}0")
+        """Turn off the switch."""
+        await self._send_command("0")
         self._is_on = False
-        self.async_write_ha_state()
 
-    async def _send_command(self, data):
-        """Send a command to the device."""
-        import requests
-        response = requests.post(
-            f"http://{self._ip_address}/api",
-            json={
-                "cmd": "ST",
-                "device_ID": self._device_id,
-                "data": data,
-                "serial": 12345
-            },
-            timeout=10
-        )
-        response.raise_for_status()
+    async def _send_command(self, state):
+        """Send ST command to the device."""
+        data = f"{self._switch_id:02}XX{state}"
+        payload = {
+            "cmd": "ST",
+            "device_ID": self._device_id,
+            "data": data,
+            "serial": 12345
+        }
+        url = f"http://{self._ip_address}/api"
+        try:
+            response = await self.hass.async_add_executor_job(
+                requests.post, url, json=payload, timeout=10
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            pass
