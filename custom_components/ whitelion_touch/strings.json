@@ -11,7 +11,7 @@
         }
     },
     "error": {
-        "cannot_connect": "Failed to connect to the device.",
-        "invalid_response": "Invalid response from the device."
+        "cannot_connect": "Unable to connect to the device. Check the IP address and network.",
+        "invalid_response": "Device did not return valid information. Check the Device ID or try again."
     }
 }
