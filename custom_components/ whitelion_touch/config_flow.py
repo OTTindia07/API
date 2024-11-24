@@ -16,9 +16,12 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id = user_input[CONF_DEVICE_ID]
 
             try:
-                # Simulate fetching the device model
-                device_info = await self.hass.async_add_executor_job(self.fetch_device_info, ip_address, device_id)
-                if device_info:
+                # Fetch the device model using DL command
+                device_info = await self.hass.async_add_executor_job(
+                    self.fetch_device_info, ip_address, device_id
+                )
+
+                if device_info and "model" in device_info:
                     return self.async_create_entry(
                         title=f"Whitelion {device_info['model']}",
                         data={
@@ -44,7 +47,7 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def fetch_device_info(self, ip_address, device_id):
-        """Simulate fetching device information."""
+        """Fetch the device information (model) using DL command."""
         import requests
         response = requests.post(
             f"http://{ip_address}/api",
