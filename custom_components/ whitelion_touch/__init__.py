@@ -1,23 +1,23 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from .const import DOMAIN
-from .api import WhitelionTouchAPI
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up Whitelion Touch integration."""
+from .const import DOMAIN
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Whitelion Touch from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = WhitelionTouchAPI(
-        entry.data["host"],
-        entry.data["device_id"],
-        entry.data["username"],
-        entry.data["password"],
+    hass.data[DOMAIN][entry.entry_id] = entry.data
+
+    # Forward setup to the switch platform
+    hass.async_create_task(
+        hass.config_entries.async_forward_entry_setup(entry, "switch")
     )
 
-    hass.config_entries.async_setup_platforms(entry, ["switch", "sensor"])
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    await hass.config_entries.async_unload_platforms(entry, ["switch", "sensor"])
     hass.data[DOMAIN].pop(entry.entry_id)
-    return True
+
+    return await hass.config_entries.async_forward_entry_unload(entry, "switch")
