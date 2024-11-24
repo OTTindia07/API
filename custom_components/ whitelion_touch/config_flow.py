@@ -1,7 +1,10 @@
-from homeassistant import config_entries
 import voluptuous as vol
-import requests
+from homeassistant import config_entries
+from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_IP_ADDRESS, CONF_ID
 from .const import DOMAIN
+import requests
+
 
 class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Whitelion Touch."""
