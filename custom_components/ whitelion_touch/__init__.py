@@ -1,16 +1,41 @@
+"""The Whitelion Touch integration."""
+import logging
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = ["switch"]
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    """Set up the Whitelion Touch integration."""
+    """Set up the Whitelion Touch component."""
+    hass.data.setdefault(DOMAIN, {})
     return True
 
-async def async_setup_entry(hass: HomeAssistant, entry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Whitelion Touch from a config entry."""
-    hass.data.setdefault("whitelion_touch", {})
-    hass.data["whitelion_touch"][entry.entry_id] = entry.data
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = entry.data
+
+    for platform in PLATFORMS:
+        hass.async_create_task(
+            hass.config_entries.async_forward_entry_setup(entry, platform)
+        )
+
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry):
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    hass.data["whitelion_touch"].pop(entry.entry_id)
-    return True
+    unload_ok = all(
+        await asyncio.gather(
+            *[
+                hass.config_entries.async_forward_entry_unload(entry, platform)
+                for platform in PLATFORMS
+            ]
+        )
+    )
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok
