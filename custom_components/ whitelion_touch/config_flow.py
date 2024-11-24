@@ -1,6 +1,7 @@
-import voluptuous as vol
+"""Config flow for Whitelion Touch integration."""
 from homeassistant import config_entries
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS
+import requests
+from .const import DOMAIN
 
 class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Whitelion Touch."""
@@ -12,51 +13,43 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            ip_address = user_input[CONF_IP_ADDRESS]
-            device_id = user_input[CONF_DEVICE_ID]
+            ip_address = user_input["ip_address"]
+            device_id = user_input["device_id"]
 
-            try:
-                # Fetch the device model using DL command
-                device_info = await self.hass.async_add_executor_job(
-                    self.fetch_device_info, ip_address, device_id
-                )
-
-                if device_info and "model" in device_info:
-                    return self.async_create_entry(
-                        title=f"Whitelion {device_info['model']}",
-                        data={
-                            CONF_IP_ADDRESS: ip_address,
-                            CONF_DEVICE_ID: device_id,
-                            "model": device_info["model"],
-                        }
-                    )
-                else:
-                    errors["base"] = "invalid_response"
-            except Exception:
+            # Fetch device info using DL command
+            device_info = await self.hass.async_add_executor_job(fetch_device_info, ip_address, device_id)
+            if device_info is None:
                 errors["base"] = "cannot_connect"
-
-        data_schema = vol.Schema({
-            vol.Required(CONF_IP_ADDRESS): str,
-            vol.Required(CONF_DEVICE_ID): str,
-        })
+            elif "model" not in device_info:
+                errors["base"] = "invalid_response"
+            else:
+                return self.async_create_entry(
+                    title=f"Whitelion {device_info['model']}",
+                    data={
+                        "ip_address": ip_address,
+                        "device_id": device_id,
+                        "model": device_info["model"]
+                    },
+                )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
-            errors=errors
+            data_schema=vol.Schema({
+                vol.Required("ip_address"): str,
+                vol.Required("device_id"): str,
+            }),
+            errors=errors,
         )
 
-    def fetch_device_info(self, ip_address, device_id):
-        """Fetch the device information (model) using DL command."""
-        import requests
+def fetch_device_info(ip_address, device_id):
+    """Fetch device information using DL command."""
+    try:
         response = requests.post(
             f"http://{ip_address}/api",
-            json={
-                "cmd": "DL",
-                "device_ID": device_id,
-                "serial": 12345
-            },
+            json={"cmd": "DL", "device_ID": device_id, "serial": 12345},
             timeout=10
         )
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.RequestException:
+        return None
