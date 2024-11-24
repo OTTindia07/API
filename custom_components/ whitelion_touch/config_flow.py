@@ -1,6 +1,7 @@
 import voluptuous as vol
 from homeassistant import config_entries
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS
+from homeassistant.const import CONF_IP_ADDRESS, CONF_DEVICE_ID
+from .const import DOMAIN
 
 class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Whitelion Touch."""
@@ -16,9 +17,10 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id = user_input[CONF_DEVICE_ID]
 
             try:
-                # Simulate fetching the device model
+                # Fetch device information
                 device_info = await self.hass.async_add_executor_job(self.fetch_device_info, ip_address, device_id)
                 if device_info:
+                    # Create a config entry
                     return self.async_create_entry(
                         title=f"Whitelion {device_info['model']}",
                         data={
@@ -29,7 +31,8 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 else:
                     errors["base"] = "invalid_response"
-            except Exception:
+            except Exception as e:
+                _LOGGER.error(f"Error connecting to device: {e}")
                 errors["base"] = "cannot_connect"
 
         data_schema = vol.Schema({
@@ -44,16 +47,20 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def fetch_device_info(self, ip_address, device_id):
-        """Simulate fetching device information."""
+        """Fetch device information."""
         import requests
-        response = requests.post(
-            f"http://{ip_address}/api",
-            json={
-                "cmd": "DL",
-                "device_ID": device_id,
-                "serial": 12345
-            },
-            timeout=10
-        )
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.post(
+                f"http://{ip_address}/api",
+                json={
+                    "cmd": "DL",
+                    "device_ID": device_id,
+                    "serial": 12345
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            _LOGGER.error(f"Error fetching device info: {e}")
+            return None
