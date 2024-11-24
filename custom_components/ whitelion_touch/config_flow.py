@@ -5,7 +5,6 @@ from homeassistant.const import CONF_IP_ADDRESS, CONF_ID
 from .const import DOMAIN
 import requests
 
-
 class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Whitelion Touch."""
 
@@ -16,8 +15,8 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            ip_address = user_input["ip_address"]
-            device_id = user_input["device_id"]
+            ip_address = user_input[CONF_IP_ADDRESS]
+            device_id = user_input[CONF_ID]
 
             try:
                 # Fetch device info using DL command
@@ -39,8 +38,8 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required("ip_address"): str,
-                vol.Required("device_id"): str,
+                vol.Required(CONF_IP_ADDRESS): str,
+                vol.Required(CONF_ID): str,
             }),
             errors=errors,
         )
