@@ -1,20 +1,16 @@
-"""Whitelion Touch Integration."""
-
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from .const import DOMAIN
 
-DOMAIN = "whitelion_touch"
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Whitelion Touch from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-    hass.config_entries.async_setup_platforms(entry, ["switch"])
+async def async_setup(hass: HomeAssistant, config: dict):
+    """Set up the Whitelion Touch integration."""
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry):
+    """Set up Whitelion Touch from a config entry."""
+    hass.data.setdefault("whitelion_touch", {})
+    hass.data["whitelion_touch"][entry.entry_id] = entry.data
+    return True
+
+async def async_unload_entry(hass: HomeAssistant, entry):
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["switch"])
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-    return unload_ok
+    hass.data["whitelion_touch"].pop(entry.entry_id)
+    return True
