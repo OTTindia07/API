@@ -1,36 +1,17 @@
 {
-  "title": "Whitelion Touch Integration",
-  "config": {
+    "title": "Whitelion Touch",
     "step": {
-      "user": {
-        "title": "Set up Whitelion Touch",
-        "description": "Enter the IP address and Device ID of your Whitelion Touch device.",
-        "data": {
-          "ip_address": "IP Address",
-          "device_id": "Device ID"
+        "user": {
+            "title": "Configure Whitelion Touch",
+            "description": "Enter the IP address and Device ID of the Whitelion Touch device.",
+            "data": {
+                "ip_address": "IP Address",
+                "device_id": "Device ID"
+            }
         }
-      }
     },
     "error": {
-      "cannot_connect": "Cannot connect to the device. Please check the IP address and try again.",
-      "invalid_response": "Received an invalid response from the device."
+        "cannot_connect": "Failed to connect to the device.",
+        "invalid_response": "Invalid response from the device."
     }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Options",
-        "description": "Configure additional settings for the Whitelion Touch integration."
-      }
-    }
-  },
-  "device": {
-    "name": "Whitelion Touch Device",
-    "manufacturer": "Whitelion",
-    "model": "Dynamic (based on fetched data)"
-  },
-  "switch": {
-    "name_template": "Switch {switch_id}",
-    "description": "Control your Whitelion Touch switches."
-  }
 }
