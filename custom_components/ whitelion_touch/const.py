@@ -1,2 +1,4 @@
 DOMAIN = "whitelion_touch"
-DEFAULT_NAME = "Whitelion Touch Switch"
+CONF_DEVICE_ID = "device_id"
+CONF_IP_ADDRESS = "ip_address"
+CONF_SERIAL = "serial"
