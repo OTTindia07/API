@@ -7,7 +7,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
     device_id = entry.data["device_id"]
     model = entry.data["model"]
 
-    num_switches = int(model[0])  # Assume model format like "3M" or "2M"
+    # Extract the number of switches from the model, e.g., "6M" -> 6
+    try:
+        num_switches = int(model[0])  # Assumes the first character is the number of switches
+    except ValueError:
+        num_switches = 1  # Default to 1 switch if the model format is unexpected
 
     switches = [
         WhitelionSwitch(ip_address, device_id, switch_id)
@@ -24,11 +28,12 @@ class WhitelionSwitch(SwitchEntity):
         self._device_id = device_id
         self._switch_id = switch_id
         self._is_on = False
+        self._name = f"Switch {switch_id}"
 
     @property
     def name(self):
         """Return the name of the switch."""
-        return f"Switch {self._switch_id}"
+        return self._name
 
     @property
     def is_on(self):
@@ -39,11 +44,13 @@ class WhitelionSwitch(SwitchEntity):
         """Turn the switch on."""
         await self._send_command(f"01XX{self._switch_id}1")
         self._is_on = True
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
         await self._send_command(f"01XX{self._switch_id}0")
         self._is_on = False
+        self.async_write_ha_state()
 
     async def _send_command(self, data):
         """Send a command to the device."""
@@ -54,7 +61,7 @@ class WhitelionSwitch(SwitchEntity):
                 "cmd": "ST",
                 "device_ID": self._device_id,
                 "data": data,
-                "serial": 12345
+                "serial": 12345  # Replace with actual serial logic if needed
             },
             timeout=10
         )
