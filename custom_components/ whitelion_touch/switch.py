@@ -1,48 +1,38 @@
-import logging
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import STATE_ON, STATE_OFF
-from .const import DOMAIN
+from aiohttp import ClientSession
+from .const import DOMAIN, CONF_DEVICE_ID, CONF_API_URL
 
-_LOGGER = logging.getLogger(__name__)
+class WhitelionTouchSwitch(SwitchEntity):
+    """Representation of a switch for the Whitelion Touch Panel."""
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up switches based on the touch panel configuration."""
-    name = config.get("name")
-    host = config.get("host")
-    number_of_switches = int(config.get("num_switches", 0))
-
-    # Create switches dynamically based on the number of switches
-    switches = [
-        TouchPanelSwitch(name, host, i+1)
-        for i in range(number_of_switches)
-    ]
-    add_entities(switches)
-
-class TouchPanelSwitch(SwitchEntity):
-    def __init__(self, name, host, switch_number):
-        self._name = f"{name} Switch {switch_number}"
-        self._host = host
+    def __init__(self, device_id, api_url, switch_number):
+        self._device_id = device_id
+        self._api_url = api_url
         self._switch_number = switch_number
-        self._state = STATE_OFF
+        self._state = False
+
+    async def async_turn_on(self):
+        """Turn the switch on."""
+        await self._send_command(f"{self._switch_number}XX1")
+        self._state = True
+
+    async def async_turn_off(self):
+        """Turn the switch off."""
+        await self._send_command(f"{self._switch_number}XX0")
+        self._state = False
+
+    async def _send_command(self, data):
+        """Send a command to the touch panel."""
+        async with ClientSession() as session:
+            payload = {
+                "cmd": "ST",
+                "device_ID": self._device_id,
+                "data": data,
+                "serial": 1,
+            }
+            headers = {"Content-Type": "application/json"}
+            await session.post(self._api_url, json=payload, headers=headers)
 
     @property
-    def name(self):
-        return self._name
-
-    @property
-    def state(self):
+    def is_on(self):
         return self._state
-
-    def turn_on(self, **kwargs):
-        self._state = STATE_ON
-        _LOGGER.info(f"{self._name} turned on")
-
-    def turn_off(self, **kwargs):
-        self._state = STATE_OFF
-        _LOGGER.info(f"{self._name} turned off")
-
-    def update(self):
-        """Update the switch status, typically by sending the SS command."""
-        _LOGGER.info(f"Updating {self._name} status")
-        # Example: fetch switch status from device using SS command
-        self._state = random.choice([STATE_ON, STATE_OFF])
