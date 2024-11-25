@@ -1,10 +1,9 @@
 {
-  "domain": "whitelion_touch",
-  "name": "Whitelion Touch",
+  "domain": "touch_panel",
+  "name": "Touch Panel",
+  "version": "1.0",
   "config_flow": true,
-  "documentation": "https://www.example.com",
-  "requirements": [],
   "dependencies": [],
   "codeowners": ["@yourgithubusername"],
-  "version": "1.0.0"
+  "requirements": []
 }
