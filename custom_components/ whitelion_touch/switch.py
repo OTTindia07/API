@@ -1,38 +1,47 @@
+import random
+import requests
 from homeassistant.components.switch import SwitchEntity
-from aiohttp import ClientSession
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_API_URL
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from .const import DOMAIN
 
-class WhitelionTouchSwitch(SwitchEntity):
-    """Representation of a switch for the Whitelion Touch Panel."""
+class TouchPanelSwitch(SwitchEntity):
+    """Representation of a Touch Panel switch."""
 
-    def __init__(self, device_id, api_url, switch_number):
-        self._device_id = device_id
-        self._api_url = api_url
+    def __init__(self, coordinator, config, switch_number):
+        self._coordinator = coordinator
+        self._config = config
         self._switch_number = switch_number
         self._state = False
 
-    async def async_turn_on(self):
-        """Turn the switch on."""
-        await self._send_command(f"{self._switch_number}XX1")
-        self._state = True
-
-    async def async_turn_off(self):
-        """Turn the switch off."""
-        await self._send_command(f"{self._switch_number}XX0")
-        self._state = False
-
-    async def _send_command(self, data):
-        """Send a command to the touch panel."""
-        async with ClientSession() as session:
-            payload = {
-                "cmd": "ST",
-                "device_ID": self._device_id,
-                "data": data,
-                "serial": 1,
-            }
-            headers = {"Content-Type": "application/json"}
-            await session.post(self._api_url, json=payload, headers=headers)
+    @property
+    def name(self):
+        return f"{self._config['device_id']} Switch {self._switch_number}"
 
     @property
     def is_on(self):
         return self._state
+
+    def turn_on(self, **kwargs):
+        self._send_command("1")
+
+    def turn_off(self, **kwargs):
+        self._send_command("0")
+
+    def update(self):
+        """Update switch state."""
+        self._state = self._coordinator.data.get(f"{self._switch_number}XX1N", False)
+
+    def _send_command(self, state):
+        serial = random.randint(1, 65535)
+        cmd_data = f"0{self._switch_number}XX{state}"
+        payload = {
+            "cmd": "ST",
+            "device_ID": self._config["device_id"],
+            "data": cmd_data,
+            "serial": serial,
+        }
+        headers = {"Content-Type": "application/json"}
+        try:
+            requests.post(f"http://{self._config['host']}/api", json=payload, headers=headers)
+        except Exception as e:
+            print(f"Error sending command for {self.name}: {e}")
