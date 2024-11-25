@@ -1,20 +1,52 @@
-"""Config flow for Touch Panel integration."""
+import logging
+import random
+import requests
 from homeassistant import config_entries
 from homeassistant.core import callback
-import voluptuous as vol
-import requests
-import random
+from .const import DOMAIN
 
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_API_URL, CONF_NAME
+_LOGGER = logging.getLogger(__name__)
 
-class TouchPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Touch Panel."""
+class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Whitelion Touch Panel."""
 
     VERSION = 1
 
-    def _generate_serial(self):
-        """Generate a unique random serial number."""
-        return random.randint(0, 65535)
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Return the options flow."""
+        return OptionsFlowHandler(config_entry)
+
+    async def async_step_user(self, user_input=None):
+        """Handle the initial step."""
+        errors = {}
+
+        if user_input is not None:
+            api_url = user_input["api_url"]
+            device_id = user_input["device_id"]
+
+            try:
+                # Test the connection to the device
+                await self.hass.async_add_executor_job(self._test_connection, api_url, device_id)
+                
+                # Create the entry
+                return self.async_create_entry(
+                    title=f"Whitelion Panel ({device_id})", data=user_input
+                )
+            except ConnectionError as err:
+                _LOGGER.error("Error connecting to touch panel: %s", api_url)
+                errors["base"] = "cannot_connect"
+            except Exception as err:
+                _LOGGER.exception("Unexpected exception during setup")
+                errors["base"] = "unknown"
+
+        # Show the form again with errors if connection failed
+        return self.async_show_form(
+            step_id="user",
+            data_schema=self._get_form_schema(),
+            errors=errors
+        )
 
     def _test_connection(self, api_url, device_id):
         """Test connectivity to the device."""
@@ -23,49 +55,56 @@ class TouchPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         payload = {"cmd": "DS", "device_ID": device_id, "serial": serial}
 
         try:
-            response = requests.post(f"http://{api_url}/api", json=payload, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("error") == 0:  # Connection successful
-                    return True
-            return False
-        except requests.RequestException:
-            return False
+            response = requests.post(
+                f"http://{api_url}/api", json=payload, headers=headers, timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
 
-    async def async_step_user(self, user_input=None):
-        """Handle the initial step."""
-        if user_input is not None:
-            # Validate the connection to the device
-            api_url = user_input[CONF_API_URL]
-            device_id = user_input[CONF_DEVICE_ID]
+            # Check the device's response
+            if data.get("error", 1) != 0:
+                _LOGGER.error("Device returned an error: %s", data)
+                raise ConnectionError(f"Device error: {data.get('error')}")
+        except requests.exceptions.RequestException as ex:
+            _LOGGER.error("Request failed: %s", ex)
+            raise ConnectionError("Failed to connect to the device.")
 
-            if self._test_connection(api_url, device_id):
-                # Create the entry if the connection is successful
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME],
-                    data={
-                        CONF_API_URL: api_url,
-                        CONF_DEVICE_ID: device_id,
-                    },
-                )
-            else:
-                errors = {"base": "cannot_connect"}
-                return self.async_show_form(step_id="user", data_schema=self._get_schema(), errors=errors)
+    @staticmethod
+    def _generate_serial():
+        """Generate a unique random serial number."""
+        return random.randint(0, 65536)
 
-        return self.async_show_form(step_id="user", data_schema=self._get_schema())
-
-    @callback
-    def _get_schema(self):
-        """Return the schema for user input."""
+    @staticmethod
+    def _get_form_schema():
+        """Return the form schema for user input."""
+        import voluptuous as vol
         return vol.Schema(
             {
-                vol.Required(CONF_NAME): str,
-                vol.Required(CONF_API_URL): str,
-                vol.Required(CONF_DEVICE_ID): str,
+                vol.Required("api_url", description="API URL of the touch panel"): str,
+                vol.Required("device_id", description="Device ID (e.g., WL-29EA18)"): str,
             }
         )
 
-    async def async_step_import(self, import_data):
-        """Handle import from YAML configuration."""
-        return await self.async_step_user(user_input=import_data)
 
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for the integration."""
+
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            # Save the updated options
+            return self.async_create_entry(title="", data=user_input)
+
+        # Return current options form
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self._get_options_schema(),
+        )
+
+    def _get_options_schema(self):
+        """Return options schema."""
+        import voluptuous as vol
+        return vol.Schema({})
