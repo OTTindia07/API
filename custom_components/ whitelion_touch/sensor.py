@@ -1,35 +1,40 @@
+import random
+import requests
 from homeassistant.components.sensor import SensorEntity
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_API_URL
+from .const import DOMAIN
 
-class WhitelionTouchSensor(SensorEntity):
-    """Representation of the Whitelion Touch Panel sensor."""
+class TouchPanelStatusSensor(SensorEntity):
+    """Representation of the Touch Panel status."""
 
-    def __init__(self, device_id, api_url):
-        self._device_id = device_id
-        self._api_url = api_url
+    def __init__(self, config):
+        self._config = config
         self._state = None
-
-    async def async_update(self):
-        """Fetch new state data for the sensor."""
-        try:
-            async with ClientSession() as session:
-                payload = {
-                    "cmd": "DL",
-                    "device_ID": self._device_id,
-                    "serial": 1,
-                }
-                headers = {"Content-Type": "application/json"}
-                async with session.post(self._api_url, json=payload, headers=headers) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        self._state = data.get("model")
-        except Exception:
-            self._state = None
 
     @property
     def name(self):
-        return f"Whitelion Touch Sensor ({self._device_id})"
+        return f"{self._config['device_id']} Status"
 
     @property
     def state(self):
         return self._state
+
+    def update(self):
+        """Fetch the status from the device."""
+        serial = random.randint(1, 65535)
+        payload = {
+            "cmd": "DS",
+            "device_ID": self._config["device_id"],
+            "serial": serial,
+        }
+        headers = {"Content-Type": "application/json"}
+        try:
+            response = requests.post(f"http://{self._config['host']}/api", json=payload, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("serial") == serial:  # Ensure response matches request
+                    self._state = data
+            else:
+                self._state = None
+        except Exception as e:
+            self._state = None
+            print(f"Error updating status sensor: {e}")
