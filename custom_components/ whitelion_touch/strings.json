@@ -1,5 +1,18 @@
 {
-  "title": "Touch Panel Integration",
-  "device_name": "Touch Panel Device",
-  "switch": "Switch"
+  "title": "Whitelion Touch Panel",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Whitelion Touch Panel",
+        "description": "Enter the device information to connect to your Whitelion Touch Panel.",
+        "data": {
+          "device_id": "Device ID",
+          "api_url": "Panel IP Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the touch panel. Please check the IP address and try again."
+    }
+  }
 }
