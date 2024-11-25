@@ -1,3 +1,3 @@
-DOMAIN = "whitelion_touch"
+DOMAIN = "touch_panel"
+CONF_HOST = "host"
 CONF_DEVICE_ID = "device_id"
-CONF_API_URL = "api_url"
