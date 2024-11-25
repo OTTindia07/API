@@ -1,35 +1,35 @@
-import logging
-import random
-import homeassistant.helpers.config_validation as cv
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.entity import Entity
-from homeassistant.const import STATE_ON, STATE_OFF
-from .const import DOMAIN
+from .const import DOMAIN, CONF_DEVICE_ID, CONF_API_URL
 
-_LOGGER = logging.getLogger(__name__)
+class WhitelionTouchSensor(SensorEntity):
+    """Representation of the Whitelion Touch Panel sensor."""
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the Touch Panel sensors."""
-    # Create sensors based on configuration
-    name = config.get("name")
-    host = config.get("host")
-    add_entities([TouchPanelStatusSensor(name, host)])
+    def __init__(self, device_id, api_url):
+        self._device_id = device_id
+        self._api_url = api_url
+        self._state = None
 
-class TouchPanelStatusSensor(SensorEntity):
-    def __init__(self, name, host):
-        self._name = name
-        self._host = host
-        self._state = STATE_OFF
+    async def async_update(self):
+        """Fetch new state data for the sensor."""
+        try:
+            async with ClientSession() as session:
+                payload = {
+                    "cmd": "DL",
+                    "device_ID": self._device_id,
+                    "serial": 1,
+                }
+                headers = {"Content-Type": "application/json"}
+                async with session.post(self._api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        self._state = data.get("model")
+        except Exception:
+            self._state = None
 
     @property
     def name(self):
-        return self._name
+        return f"Whitelion Touch Sensor ({self._device_id})"
 
     @property
     def state(self):
         return self._state
-
-    def update(self):
-        # Fetch status from the device (for example, using the SS command)
-        self._state = random.choice([STATE_ON, STATE_OFF])  # Simulated status change
-        _LOGGER.info(f"Touch Panel status updated: {self._state}")
