@@ -34,11 +34,14 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=f"Whitelion Panel ({device_id})", data=user_input
                 )
-            except ConnectionError as err:
-                _LOGGER.error("Error connecting to touch panel: %s", api_url)
+            except requests.exceptions.RequestException as err:
+                _LOGGER.error("Network error: %s", err)
                 errors["base"] = "cannot_connect"
+            except ValueError as err:
+                _LOGGER.error("Unexpected response format: %s", err)
+                errors["base"] = "invalid_response"
             except Exception as err:
-                _LOGGER.exception("Unexpected exception during setup")
+                _LOGGER.exception("Unexpected error: %s", err)
                 errors["base"] = "unknown"
 
         # Show the form again with errors if connection failed
@@ -61,13 +64,19 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             response.raise_for_status()
             data = response.json()
 
-            # Check the device's response
+            # Validate the response
             if data.get("error", 1) != 0:
-                _LOGGER.error("Device returned an error: %s", data)
-                raise ConnectionError(f"Device error: {data.get('error')}")
-        except requests.exceptions.RequestException as ex:
-            _LOGGER.error("Request failed: %s", ex)
-            raise ConnectionError("Failed to connect to the device.")
+                _LOGGER.error("Device error: %s", data.get("error"))
+                raise ValueError(f"Device returned an error: {data.get('error')}")
+        except requests.exceptions.ConnectionError as ex:
+            _LOGGER.error("Connection failed: %s", ex)
+            raise requests.exceptions.RequestException("Failed to connect to the device.")
+        except requests.exceptions.Timeout as ex:
+            _LOGGER.error("Request timed out: %s", ex)
+            raise requests.exceptions.RequestException("Device timeout.")
+        except requests.exceptions.JSONDecodeError as ex:
+            _LOGGER.error("Invalid JSON response: %s", ex)
+            raise ValueError("Invalid JSON received from the device.")
 
     @staticmethod
     def _generate_serial():
@@ -95,10 +104,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
-            # Save the updated options
             return self.async_create_entry(title="", data=user_input)
 
-        # Return current options form
         return self.async_show_form(
             step_id="init",
             data_schema=self._get_options_schema(),
