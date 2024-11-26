@@ -17,7 +17,11 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if device_info:
                     return self.async_create_entry(
                         title=f"Whitelion {device_info['model']}",
-                        data={CONF_IP_ADDRESS: ip_address, CONF_DEVICE_ID: device_id}
+                        data={
+                            CONF_IP_ADDRESS: ip_address,
+                            CONF_DEVICE_ID: device_id,
+                            "model": device_info["model"]
+                        }
                     )
                 else:
                     errors["base"] = "invalid_response"
@@ -35,8 +39,8 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         import requests
         serial_number = random.randint(0, 65536)
         response = requests.post(
-            f"http://{ip_address}/api", 
-            json={"cmd": "DL", "device_ID": device_id, "serial": serial_number}, 
+            f"http://{ip_address}/api",
+            json={"cmd": "DL", "device_ID": device_id, "serial": serial_number},
             timeout=10
         )
         response.raise_for_status()
