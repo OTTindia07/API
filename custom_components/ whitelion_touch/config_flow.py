@@ -15,11 +15,14 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id = user_input[CONF_DEVICE_ID]
             try:
                 # Validate device information
-                await self.hass.async_add_executor_job(self.validate_device, self.hass, ip_address, device_id)
-                return self.async_create_entry(
-                    title=f"Whitelion {device_id}",
-                    data={CONF_IP_ADDRESS: ip_address, CONF_DEVICE_ID: device_id}
-                )
+                device_info = await self.hass.async_add_executor_job(self.validate_device, ip_address, device_id)
+                if device_info:
+                    return self.async_create_entry(
+                        title=f"Whitelion {device_info['model']}",
+                        data={CONF_IP_ADDRESS: ip_address, CONF_DEVICE_ID: device_id}
+                    )
+                else:
+                    errors["base"] = "invalid_response"
             except Exception:
                 errors["base"] = "cannot_connect"
 
@@ -29,11 +32,11 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
         return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)
 
-    def validate_device(self, hass: HomeAssistant, ip_address, device_id):
+    def validate_device(self, ip_address, device_id):
         """Validate device by logging in and fetching model."""
         import requests
         
-        # Login
+        # Login command
         serial_number = random.randint(0, 65536)
         login_response = requests.post(
             f"http://{ip_address}/api",
@@ -42,7 +45,7 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         login_response.raise_for_status()
         
-        # Fetch model
+        # Fetch model command
         serial_number = random.randint(0, 65536)
         model_response = requests.post(
             f"http://{ip_address}/api",
@@ -50,5 +53,5 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             timeout=10
         )
         model_response.raise_for_status()
-
+        
         return model_response.json()
