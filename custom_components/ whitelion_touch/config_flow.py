@@ -1,7 +1,8 @@
 import random
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
+from homeassistant.core import callback
+from aiohttp import ClientError
 from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS
 
 class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -15,16 +16,15 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id = user_input[CONF_DEVICE_ID]
             try:
                 # Validate device information
-                device_info = await self.hass.async_add_executor_job(self.validate_device, ip_address, device_id)
-                if device_info:
-                    return self.async_create_entry(
-                        title=f"Whitelion {device_info['model']}",
-                        data={CONF_IP_ADDRESS: ip_address, CONF_DEVICE_ID: device_id}
-                    )
-                else:
-                    errors["base"] = "invalid_response"
-            except Exception:
+                device_info = await self._validate_device(ip_address, device_id)
+                return self.async_create_entry(
+                    title=f"Whitelion {device_info['model']}",
+                    data={CONF_IP_ADDRESS: ip_address, CONF_DEVICE_ID: device_id},
+                )
+            except ClientError:
                 errors["base"] = "cannot_connect"
+            except Exception:
+                errors["base"] = "unknown"
 
         data_schema = vol.Schema({
             vol.Required(CONF_IP_ADDRESS): str,
@@ -32,26 +32,18 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
         return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)
 
-    def validate_device(self, ip_address, device_id):
-        """Validate device by logging in and fetching model."""
-        import requests
-        
-        # Login command
-        serial_number = random.randint(0, 65536)
-        login_response = requests.post(
-            f"http://{ip_address}/api",
-            json={"cmd": "LN", "device_ID": device_id, "data": ["admin", "1234"], "serial": serial_number},
-            timeout=10
-        )
-        login_response.raise_for_status()
-        
-        # Fetch model command
-        serial_number = random.randint(0, 65536)
-        model_response = requests.post(
-            f"http://{ip_address}/api",
-            json={"cmd": "DL", "device_ID": device_id, "serial": serial_number},
-            timeout=10
-        )
-        model_response.raise_for_status()
-        
-        return model_response.json()
+    async def _validate_device(self, ip_address, device_id):
+        """Validate device by sending API requests."""
+        import aiohttp
+
+        async with aiohttp.ClientSession() as session:
+            serial_number = random.randint(0, 65536)
+
+            # Fetch model
+            async with session.post(
+                f"http://{ip_address}/api",
+                json={"cmd": "DL", "device_ID": device_id, "serial": serial_number},
+                timeout=10,
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
