@@ -3,7 +3,7 @@
   "name": "Whitelion Touch",
   "config_flow": true,
   "documentation": "https://www.example.com",
-  "requirements": [],
+  "requirements": ["aiohttp"],
   "dependencies": [],
   "codeowners": ["@yourgithubusername"],
   "version": "1.0.0"
