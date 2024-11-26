@@ -1,47 +1,57 @@
-import random
-import requests
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
-class TouchPanelSwitch(SwitchEntity):
-    """Representation of a Touch Panel switch."""
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up Whitelion switches from a config entry."""
+    ip_address = entry.data["ip_address"]
+    device_id = entry.data["device_id"]
+    
+    # Assume model format like "6M" or similar.
+    model = entry.data.get("model", "")
+    num_switches = int(model[0]) if model else 0
+    
+    switches = [
+        WhitelionSwitch(ip_address, device_id, switch_id)
+        for switch_id in range(1, num_switches + 1)
+    ]
+    
+    async_add_entities(switches)
 
-    def __init__(self, coordinator, config, switch_number):
-        self._coordinator = coordinator
-        self._config = config
-        self._switch_number = switch_number
-        self._state = False
+class WhitelionSwitch(SwitchEntity):
+    """Representation of a Whitelion Touch switch."""
+
+    def __init__(self, ip_address, device_id, switch_id):
+        self._ip_address = ip_address
+        self._device_id = device_id
+        self._switch_id = switch_id
+        self._is_on = False
 
     @property
     def name(self):
-        return f"{self._config['device_id']} Switch {self._switch_number}"
+        """Return the name of the switch."""
+        return f"Switch {self._switch_id}"
 
     @property
     def is_on(self):
-        return self._state
+        """Return the state of the switch."""
+        return self._is_on
 
-    def turn_on(self, **kwargs):
-        self._send_command("1")
+    async def async_turn_on(self, **kwargs):
+        """Turn the switch on."""
+        await self._send_command(f"01XX{self._switch_id}1")
+        self._is_on = True
 
-    def turn_off(self, **kwargs):
-        self._send_command("0")
+    async def async_turn_off(self, **kwargs):
+        """Turn the switch off."""
+        await self._send_command(f"01XX{self._switch_id}0")
+        self._is_on = False
 
-    def update(self):
-        """Update switch state."""
-        self._state = self._coordinator.data.get(f"{self._switch_number}XX1N", False)
-
-    def _send_command(self, state):
-        serial = random.randint(1, 65535)
-        cmd_data = f"0{self._switch_number}XX{state}"
-        payload = {
-            "cmd": "ST",
-            "device_ID": self._config["device_id"],
-            "data": cmd_data,
-            "serial": serial,
-        }
-        headers = {"Content-Type": "application/json"}
-        try:
-            requests.post(f"http://{self._config['host']}/api", json=payload, headers=headers)
-        except Exception as e:
-            print(f"Error sending command for {self.name}: {e}")
+    async def _send_command(self, data):
+        """Send a command to the device."""
+        import requests
+        response = requests.post(
+            f"http://{self._ip_address}/api", 
+            json={"cmd": "ST", "device_ID": self._device_id, "data": data, "serial": 12345}, 
+            timeout=10
+        )
+        response.raise_for_status()
