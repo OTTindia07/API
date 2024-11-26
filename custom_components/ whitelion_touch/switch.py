@@ -37,10 +37,14 @@ async def fetch_model_info(ip_address, device_id):
         ) as resp:
             if resp.status != 200:
                 raise aiohttp.ClientError("Failed to fetch model information.")
-            return await resp.json()
+            
+            model_info = await resp.json()
+            if "model" not in model_info:
+                raise ValueError("Model information missing in response.")
+            return model_info
 
 async def fetch_switch_states(ip_address, device_id):
-    """Fetch current switch states."""
+    """Fetch current switch states from the panel."""
     serial_number = random.randint(0, 65536)
     
     async with aiohttp.ClientSession() as session:
@@ -51,8 +55,11 @@ async def fetch_switch_states(ip_address, device_id):
         ) as resp:
             if resp.status != 200:
                 raise aiohttp.ClientError("Failed to fetch switch states.")
+            
             state_info = await resp.json()
-            return state_info.get("data", [])
+            if "data" not in state_info:
+                raise ValueError("Switch states missing in response.")
+            return state_info["data"]
 
 class WhitelionSwitch(SwitchEntity):
     """Representation of a Whitelion Touch switch."""
@@ -61,7 +68,7 @@ class WhitelionSwitch(SwitchEntity):
         self._ip_address = ip_address
         self._device_id = device_id
         self._switch_id = switch_id
-        self._is_on = initial_state.endswith("1")  # Determine initial state from response
+        self._is_on = initial_state.endswith("1")  # Assume '1' means ON and '0' means OFF
 
     @property
     def name(self):
