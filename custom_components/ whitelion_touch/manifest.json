@@ -1,10 +1,10 @@
 {
-  "domain": "touch_panel",
-  "name": "Touch Panel Integration",
-  "version": "1.0.0",
-  "requirements": ["requests"],
-  "dependencies": [],
-  "codeowners": ["@your_username"],
+  "domain": "whitelion_touch",
+  "name": "Whitelion Touch",
   "config_flow": true,
-  "iot_class": "local_polling"
+  "documentation": "https://www.example.com",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@yourgithubusername"],
+  "version": "1.0.0"
 }
