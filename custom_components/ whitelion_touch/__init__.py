@@ -6,11 +6,11 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 async def async_setup_entry(hass: HomeAssistant, entry):
     """Set up Whitelion Touch from a config entry."""
-    hass.data.setdefault("whitelion_touch", {})
-    hass.data["whitelion_touch"][entry.entry_id] = entry.data
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = entry.data
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry):
     """Unload a config entry."""
-    hass.data["whitelion_touch"].pop(entry.entry_id)
+    hass.data[DOMAIN].pop(entry.entry_id)
     return True
