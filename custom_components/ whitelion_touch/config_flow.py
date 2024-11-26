@@ -1,6 +1,7 @@
 import random
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.core import HomeAssistant
 from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS
 
 class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -13,14 +14,14 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ip_address = user_input[CONF_IP_ADDRESS]
             device_id = user_input[CONF_DEVICE_ID]
             try:
-                # Attempt to log in and fetch device info
-                await self.hass.async_add_executor_job(self.login_and_fetch_info, ip_address, device_id)
+                # Validate device information
+                await self.hass.async_add_executor_job(self.validate_device, self.hass, ip_address, device_id)
                 return self.async_create_entry(
                     title=f"Whitelion {device_id}",
                     data={CONF_IP_ADDRESS: ip_address, CONF_DEVICE_ID: device_id}
                 )
-            except Exception as e:
-                errors["base"] = str(e)
+            except Exception:
+                errors["base"] = "cannot_connect"
 
         data_schema = vol.Schema({
             vol.Required(CONF_IP_ADDRESS): str,
@@ -28,11 +29,11 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
         return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)
 
-    def login_and_fetch_info(self, ip_address, device_id):
-        """Log in and fetch device information."""
+    def validate_device(self, hass: HomeAssistant, ip_address, device_id):
+        """Validate device by logging in and fetching model."""
         import requests
         
-        # Login command
+        # Login
         serial_number = random.randint(0, 65536)
         login_response = requests.post(
             f"http://{ip_address}/api",
@@ -41,7 +42,7 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         login_response.raise_for_status()
         
-        # Fetch model command
+        # Fetch model
         serial_number = random.randint(0, 65536)
         model_response = requests.post(
             f"http://{ip_address}/api",
@@ -49,5 +50,5 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             timeout=10
         )
         model_response.raise_for_status()
-        
+
         return model_response.json()
