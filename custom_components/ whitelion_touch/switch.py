@@ -1,107 +1,79 @@
 import random
-from aiohttp import ClientSession
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.helpers.entity import DeviceInfo
-from .const import DOMAIN, MANUFACTURER
+from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS, CONF_MODEL
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up Whitelion switches from a config entry."""
-    ip_address = config_entry.data["ip_address"]
-    device_id = config_entry.data["device_id"]
+def setup_platform(hass, config_entry, add_entities, discovery_info=None):
+    """Set up switches based on the model."""
+    ip_address = config_entry.data[CONF_IP_ADDRESS]
+    device_id = config_entry.data[CONF_DEVICE_ID]
+    model = config_entry.data[CONF_MODEL]
 
-    # Login using LN command
-    await login_to_panel(ip_address, device_id)
+    # Determine the number of switches based on the model
+    switch_count = {
+        "3M": 3,
+        "4M": 5,
+        "6M": 7,
+        "8M": 9
+    }.get(model, 0)
 
-    # Fetch model information using DL command
-    model_info = await fetch_model_info(ip_address, device_id)
-    num_switches = int(model_info["model"][0]) + 1 if model_info["model"][0].isdigit() else 0
-
-    # Fetch initial switch states using SS command
-    switch_states = await fetch_switch_states(ip_address, device_id)
-
-    # Create switches
     switches = [
-        WhitelionSwitch(ip_address, device_id, switch_id, switch_states[switch_id - 1], config_entry)
-        for switch_id in range(1, num_switches + 1)
+        WhitelionSwitch(ip_address, device_id, f"Switch {i+1}", i + 1)
+        for i in range(switch_count)
     ]
-    async_add_entities(switches)
 
-async def login_to_panel(ip_address, device_id):
-    """Login to the panel using the LN command."""
-    serial_number = random.randint(0, 65536)
-    async with ClientSession() as session:
-        async with session.post(
-            f"http://{ip_address}/api",
-            json={"cmd": "LN", "device_ID": device_id, "data": ["admin", "1234"], "serial": serial_number},
-            timeout=10,
-        ) as resp:
-            resp.raise_for_status()
-
-async def fetch_model_info(ip_address, device_id):
-    """Fetch model information using the DL command."""
-    serial_number = random.randint(0, 65536)
-    async with ClientSession() as session:
-        async with session.post(
-            f"http://{ip_address}/api",
-            json={"cmd": "DL", "device_ID": device_id, "serial": serial_number},
-            timeout=10,
-        ) as resp:
-            resp.raise_for_status()
-            return await resp.json()
-
-async def fetch_switch_states(ip_address, device_id):
-    """Fetch switch states using the SS command."""
-    serial_number = random.randint(0, 65536)
-    async with ClientSession() as session:
-        async with session.post(
-            f"http://{ip_address}/api",
-            json={"cmd": "SS", "device_ID": device_id, "serial": serial_number},
-            timeout=10,
-        ) as resp:
-            resp.raise_for_status()
-            return (await resp.json())["data"]
+    add_entities(switches)
 
 class WhitelionSwitch(SwitchEntity):
     """Representation of a Whitelion Touch switch."""
 
-    def __init__(self, ip_address, device_id, switch_id, initial_state, config_entry):
+    def __init__(self, ip_address, device_id, name, switch_id):
         self._ip_address = ip_address
         self._device_id = device_id
+        self._name = name
         self._switch_id = switch_id
-        self._is_on = initial_state.endswith("1")
-        self._config_entry = config_entry
-
-    @property
-    def unique_id(self):
-        return f"{self._device_id}_{self._switch_id}"
+        self._is_on = False
 
     @property
     def name(self):
-        return f"Switch {self._switch_id}"
+        return self._name
 
     @property
     def is_on(self):
         return self._is_on
 
     async def async_turn_on(self, **kwargs):
-        """Turn the switch on using ST command."""
-        await self._send_command(f"01XX{self._switch_id}1")
+        serial = random.randint(0, 65536)
+        await self._send_command("ST", f"{self._switch_id}XX1", serial)
         self._is_on = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        """Turn the switch off using ST command."""
-        await self._send_command(f"01XX{self._switch_id}0")
+        serial = random.randint(0, 65536)
+        await self._send_command("ST", f"{self._switch_id}XX0", serial)
         self._is_on = False
         self.async_write_ha_state()
 
-    async def _send_command(self, command_data):
-        """Send a command to the device using ST command."""
-        serial_number = random.randint(0, 65536)
-        async with ClientSession() as session:
-            async with session.post(
-                f"http://{self._ip_address}/api",
-                json={"cmd": "ST", "device_ID": self._device_id, "data": command_data, "serial": serial_number},
-                timeout=10,
-            ) as resp:
-                resp.raise_for_status()
+    async def async_update(self):
+        serial = random.randint(0, 65536)
+        response = await self._send_command("DS", None, serial)
+        status_data = response.get("data", [])
+        for item in status_data:
+            if item.startswith(f"{self._switch_id:02}"):
+                self._is_on = item[-1] == "1"
+                self.async_write_ha_state()
+
+    async def _send_command(self, command, data, serial):
+        import requests
+        payload = {
+            "cmd": command,
+            "device_ID": self._device_id,
+            "serial": serial,
+        }
+        if data:
+            payload["data"] = data
+
+        response = requests.post(
+            f"http://{self._ip_address}/api", json=payload, timeout=10
+        )
+        response.raise_for_status()
+        return response.json()
