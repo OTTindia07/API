@@ -1,30 +1,34 @@
 import random
+import aiohttp
 from homeassistant.components.switch import SwitchEntity
 from .const import DOMAIN
-import aiohttp
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Whitelion switches from a config entry."""
     ip_address = entry.data["ip_address"]
     device_id = entry.data["device_id"]
 
-    # Fetch model information
-    model_info = await fetch_model_info(hass, ip_address, device_id)
+    # Fetch model information to determine number of switches.
+    model_info = await fetch_model_info(ip_address, device_id)
+    
+    # Extract number of switches from model (e.g., '6M' -> 7 switches).
     num_switches = int(model_info['model'][0]) + 1 if model_info['model'][0].isdigit() else 0
+    
+    # Fetch initial switch states.
+    switch_states = await fetch_switch_states(ip_address, device_id)
 
-    # Fetch initial switch states
-    switch_states = await fetch_switch_states(hass, ip_address, device_id)
-
-    # Create switch entities
+    # Create switch entities.
     switches = [
-        WhitelionSwitch(hass, ip_address, device_id, switch_id, switch_states[switch_id - 1])
+        WhitelionSwitch(ip_address, device_id, switch_id, switch_states[switch_id - 1])
         for switch_id in range(1, num_switches + 1)
     ]
+    
     async_add_entities(switches)
 
-async def fetch_model_info(hass, ip_address, device_id):
+async def fetch_model_info(ip_address, device_id):
     """Fetch model information from the panel."""
     serial_number = random.randint(0, 65536)
+    
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"http://{ip_address}/api",
@@ -35,9 +39,10 @@ async def fetch_model_info(hass, ip_address, device_id):
                 raise aiohttp.ClientError("Failed to fetch model information.")
             return await resp.json()
 
-async def fetch_switch_states(hass, ip_address, device_id):
+async def fetch_switch_states(ip_address, device_id):
     """Fetch current switch states."""
     serial_number = random.randint(0, 65536)
+    
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"http://{ip_address}/api",
@@ -52,12 +57,11 @@ async def fetch_switch_states(hass, ip_address, device_id):
 class WhitelionSwitch(SwitchEntity):
     """Representation of a Whitelion Touch switch."""
 
-    def __init__(self, hass, ip_address, device_id, switch_id, initial_state):
-        self._hass = hass
+    def __init__(self, ip_address, device_id, switch_id, initial_state):
         self._ip_address = ip_address
         self._device_id = device_id
         self._switch_id = switch_id
-        self._is_on = initial_state.endswith("1")
+        self._is_on = initial_state.endswith("1")  # Determine initial state from response
 
     @property
     def name(self):
@@ -84,6 +88,7 @@ class WhitelionSwitch(SwitchEntity):
     async def _send_command(self, command_data):
         """Send a command to the device."""
         serial_number = random.randint(0, 65536)
+        
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"http://{self._ip_address}/api",
