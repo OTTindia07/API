@@ -1,5 +1,5 @@
 from homeassistant.core import HomeAssistant
-from .const import DOMAIN
+from .const import DOMAIN  # Import the DOMAIN constant
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Whitelion Touch integration."""
@@ -7,7 +7,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 async def async_setup_entry(hass: HomeAssistant, entry):
     """Set up Whitelion Touch from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
+    hass.data.setdefault(DOMAIN, {})  # Use DOMAIN constant here
     hass.data[DOMAIN][entry.entry_id] = entry.data
     return True
 
