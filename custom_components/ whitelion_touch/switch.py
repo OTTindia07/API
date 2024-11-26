@@ -9,11 +9,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     ip_address = config_entry.data["ip_address"]
     device_id = config_entry.data["device_id"]
 
-    # Fetch model information
+    # Login using LN command
+    await login_to_panel(ip_address, device_id)
+
+    # Fetch model information using DL command
     model_info = await fetch_model_info(ip_address, device_id)
     num_switches = int(model_info["model"][0]) + 1 if model_info["model"][0].isdigit() else 0
 
-    # Fetch initial switch states
+    # Fetch initial switch states using SS command
     switch_states = await fetch_switch_states(ip_address, device_id)
 
     # Create switches
@@ -23,8 +26,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     ]
     async_add_entities(switches)
 
+async def login_to_panel(ip_address, device_id):
+    """Login to the panel using the LN command."""
+    serial_number = random.randint(0, 65536)
+    async with ClientSession() as session:
+        async with session.post(
+            f"http://{ip_address}/api",
+            json={"cmd": "LN", "device_ID": device_id, "data": ["admin", "1234"], "serial": serial_number},
+            timeout=10,
+        ) as resp:
+            resp.raise_for_status()
+
 async def fetch_model_info(ip_address, device_id):
-    """Fetch model information."""
+    """Fetch model information using the DL command."""
     serial_number = random.randint(0, 65536)
     async with ClientSession() as session:
         async with session.post(
@@ -36,12 +50,12 @@ async def fetch_model_info(ip_address, device_id):
             return await resp.json()
 
 async def fetch_switch_states(ip_address, device_id):
-    """Fetch current switch states."""
+    """Fetch switch states using the SS command."""
     serial_number = random.randint(0, 65536)
     async with ClientSession() as session:
         async with session.post(
             f"http://{ip_address}/api",
-            json={"cmd": "DS", "device_ID": device_id, "serial": serial_number},
+            json={"cmd": "SS", "device_ID": device_id, "serial": serial_number},
             timeout=10,
         ) as resp:
             resp.raise_for_status()
@@ -66,33 +80,23 @@ class WhitelionSwitch(SwitchEntity):
         return f"Switch {self._switch_id}"
 
     @property
-    def device_info(self):
-        """Return device information for the entity."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._device_id)},
-            name="Whitelion Touch Panel",
-            manufacturer=MANUFACTURER,
-            model="Touch Panel",
-        )
-
-    @property
     def is_on(self):
         return self._is_on
 
     async def async_turn_on(self, **kwargs):
-        """Turn the switch on."""
+        """Turn the switch on using ST command."""
         await self._send_command(f"01XX{self._switch_id}1")
         self._is_on = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        """Turn the switch off."""
+        """Turn the switch off using ST command."""
         await self._send_command(f"01XX{self._switch_id}0")
         self._is_on = False
         self.async_write_ha_state()
 
     async def _send_command(self, command_data):
-        """Send a command to the device."""
+        """Send a command to the device using ST command."""
         serial_number = random.randint(0, 65536)
         async with ClientSession() as session:
             async with session.post(
