@@ -1,3 +1,4 @@
+import random
 import voluptuous as vol
 from homeassistant import config_entries
 from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS
@@ -32,9 +33,10 @@ class WhitelionTouchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def fetch_device_info(self, ip_address, device_id):
         """Fetch device information."""
         import requests
+        serial_number = random.randint(0, 65536)
         response = requests.post(
             f"http://{ip_address}/api", 
-            json={"cmd": "DL", "device_ID": device_id, "serial": 12345}, 
+            json={"cmd": "DL", "device_ID": device_id, "serial": serial_number}, 
             timeout=10
         )
         response.raise_for_status()
