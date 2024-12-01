@@ -1,10 +1,10 @@
 {
   "domain": "whitelion_touch",
   "name": "Whitelion Touch",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "documentation": "https://example.com",
-  "requirements": [],
   "dependencies": [],
-  "codeowners": ["@yourusername"],
+  "codeowners": ["@yourgithubusername"],
+  "requirements": [],
   "config_flow": true
 }
