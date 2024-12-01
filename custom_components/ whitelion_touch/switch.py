@@ -1,79 +1,103 @@
-import random
 from homeassistant.components.switch import SwitchEntity
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_IP_ADDRESS, CONF_MODEL
+from .const import DOMAIN
+from .whitelion_api import WhitelionAPI
+import asyncio
+import logging
 
-def setup_platform(hass, config_entry, add_entities, discovery_info=None):
-    """Set up switches based on the model."""
-    ip_address = config_entry.data[CONF_IP_ADDRESS]
-    device_id = config_entry.data[CONF_DEVICE_ID]
-    model = config_entry.data[CONF_MODEL]
+_LOGGER = logging.getLogger(__name__)
 
-    # Determine the number of switches based on the model
-    switch_count = {
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up Whitelion switches based on a config entry."""
+    data = hass.data[DOMAIN][config_entry.entry_id]
+    device_id = data["device_id"]
+    ip_address = data["ip_address"]
+    model = data["model"]
+
+    api = WhitelionAPI(device_id, ip_address)
+    switches = []
+
+    # Determine the number of switches based on the model mapping
+    model_switch_map = {
+        "2M": 2,
         "3M": 3,
         "4M": 5,
         "6M": 7,
-        "8M": 9
-    }.get(model, 0)
+        "8M": 9,
+    }
+    switch_count = model_switch_map.get(model, 0)
 
-    switches = [
-        WhitelionSwitch(ip_address, device_id, f"Switch {i+1}", i + 1)
-        for i in range(switch_count)
-    ]
+    # Create switch entities dynamically
+    for i in range(1, switch_count + 1):
+        switches.append(WhitelionSwitch(api, device_id, f"Switch {i}", i))
 
-    add_entities(switches)
+    async_add_entities(switches, update_before_add=True)
+
 
 class WhitelionSwitch(SwitchEntity):
-    """Representation of a Whitelion Touch switch."""
+    """Representation of a Whitelion Switch."""
 
-    def __init__(self, ip_address, device_id, name, switch_id):
-        self._ip_address = ip_address
+    def __init__(self, api, device_id, name, switch_number):
+        """Initialize the switch."""
+        self._api = api
         self._device_id = device_id
         self._name = name
-        self._switch_id = switch_id
+        self._switch_number = switch_number
         self._is_on = False
+        self._unique_id = f"{device_id}_{switch_number}"
+        self._last_command_time = None
+
+    @property
+    def unique_id(self):
+        """Return a unique ID for the switch."""
+        return self._unique_id
 
     @property
     def name(self):
+        """Return the name of the switch."""
         return self._name
 
     @property
     def is_on(self):
+        """Return the current state of the switch."""
         return self._is_on
 
     async def async_turn_on(self, **kwargs):
-        serial = random.randint(0, 65536)
-        await self._send_command("ST", f"{self._switch_id}XX1", serial)
-        self._is_on = True
-        self.async_write_ha_state()
+        """Turn the switch on."""
+        try:
+            await self.hass.async_add_executor_job(self._api.set_switch, self._switch_number, 1)
+            self._is_on = True
+            self._last_command_time = asyncio.get_event_loop().time()
+            self.async_write_ha_state()
+        except Exception as e:
+            _LOGGER.error(f"Error turning on {self._name}: {e}")
 
     async def async_turn_off(self, **kwargs):
-        serial = random.randint(0, 65536)
-        await self._send_command("ST", f"{self._switch_id}XX0", serial)
-        self._is_on = False
-        self.async_write_ha_state()
+        """Turn the switch off."""
+        try:
+            await self.hass.async_add_executor_job(self._api.set_switch, self._switch_number, 0)
+            self._is_on = False
+            self._last_command_time = asyncio.get_event_loop().time()
+            self.async_write_ha_state()
+        except Exception as e:
+            _LOGGER.error(f"Error turning off {self._name}: {e}")
 
     async def async_update(self):
-        serial = random.randint(0, 65536)
-        response = await self._send_command("DS", None, serial)
-        status_data = response.get("data", [])
-        for item in status_data:
-            if item.startswith(f"{self._switch_id:02}"):
-                self._is_on = item[-1] == "1"
+        """
+        Fetch the latest state of the switch from the backend.
+        Prevent immediate override of recent commands.
+        """
+        try:
+            # Wait 2 seconds after a command before fetching state
+            if self._last_command_time and (asyncio.get_event_loop().time() - self._last_command_time < 2):
+                return
+
+            # Fetch the latest status for all switches
+            status = await self.hass.async_add_executor_job(self._api.get_status)
+
+            # Update the state of this specific switch
+            switch_status = status.get(str(self._switch_number), None)
+            if switch_status is not None:
+                self._is_on = switch_status
                 self.async_write_ha_state()
-
-    async def _send_command(self, command, data, serial):
-        import requests
-        payload = {
-            "cmd": command,
-            "device_ID": self._device_id,
-            "serial": serial,
-        }
-        if data:
-            payload["data"] = data
-
-        response = requests.post(
-            f"http://{self._ip_address}/api", json=payload, timeout=10
-        )
-        response.raise_for_status()
-        return response.json()
+        except Exception as e:
+            _LOGGER.error(f"Error updating {self._name}: {e}")
