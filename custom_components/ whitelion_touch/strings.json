@@ -1,0 +1,18 @@
+{
+    "title": "Whitelion Touch",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect to Whitelion Device",
+                "description": "Enter the details of your Whitelion device.",
+                "data": {
+                    "device_id": "Device ID",
+                    "ip_address": "IP Address"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to the device."
+        }
+    }
+}
